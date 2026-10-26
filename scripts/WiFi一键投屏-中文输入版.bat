@@ -153,11 +153,23 @@ timeout /t 1 >nul
 goto :wait_usb
 
 rem ================= 第6步：检查/安装 APK =================
+rem 检查已装版本：若与当前 APK 版本不一致（如旧版 4.1），必须先卸载，
+rem 否则 scrcpy 启动时会在 WiFi 连接下尝试升级，容易安装失败导致投屏退出
 :install_ime
 "%ADB%" -s !USB_SERIAL! shell pm list packages > "%TEMP%\pkg.txt" 2>nul
 findstr /c:"com.genymobile.scrcpy.ime" "%TEMP%\pkg.txt" >nul 2>&1
-if not errorlevel 1 goto :get_ip
+if errorlevel 1 goto :do_install
+rem 已安装：校验版本是否匹配
+"%ADB%" -s !USB_SERIAL! shell dumpsys package com.genymobile.scrcpy.ime > "%TEMP%\imever.txt" 2>nul
+findstr /c:"versionName=5.0.1" "%TEMP%\imever.txt" >nul 2>&1
+if not errorlevel 1 (
+    echo  [检测] scrcpy-ime 已是最新版本 5.0.1
+    goto :get_ip
+)
+echo  [检测] 手机上的 scrcpy-ime 是旧版本，正在更新（先卸载旧版）...
+"%ADB%" -s !USB_SERIAL! uninstall com.genymobile.scrcpy.ime >nul 2>&1
 
+:do_install
 echo.
 echo  ----------------------------------------------
 echo  需要安装 scrcpy-ime 输入法到手机：
