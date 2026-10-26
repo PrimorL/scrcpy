@@ -230,14 +230,42 @@ rem ================= 第10步：WiFi 连接 =================
 echo  正在通过 WiFi 连接手机...
 "%ADB%" connect !IPADDR!:5555
 set "CAST_SERIAL=!IPADDR!:5555"
+
+rem 验证 WiFi 连接是否成功（等待连接建立）
+set "CONN_OK="
+set "CONN_CNT=0"
+:wait_conn
+set /a CONN_CNT+=1
+if !CONN_CNT! gtr 15 (
+    set "ERRMSG=WiFi 连接失败（15 秒未连上 !IPADDR!:5555），请确认手机和电脑在同一 WiFi"
+    goto :fail
+)
+"%ADB%" devices > "%TEMP%\adb_raw.txt" 2>nul
+findstr /c:"!IPADDR!:5555" "%TEMP%\adb_raw.txt" > "%TEMP%\conn.txt" 2>nul
+findstr /c:"device" "%TEMP%\conn.txt" >nul 2>&1
+if not errorlevel 1 set "CONN_OK=1"
+if defined CONN_OK goto :conn_ok
+timeout /t 1 >nul
+goto :wait_conn
+
+:conn_ok
+echo  [成功] WiFi 已连接：!CAST_SERIAL!
 echo.
 
 rem ================= 第11步：启动投屏 =================
 :cast
 echo  [启动] 正在启动投屏（中文输入模式，60 帧）...
 echo  提示：用电脑输入法打字即可直接输入中文到手机
-echo  投屏启动后本窗口将自动关闭。
-powershell -NoProfile -Command "Start-Process -FilePath '%SCRCPY%' -ArgumentList '--serial=!CAST_SERIAL!','--ime','--video-codec=h265','--max-size=1920','--max-fps=60','--video-bit-rate=10M','--video-buffer=50','--audio-bit-rate=256K','--audio-buffer=100','--turn-screen-off' -WindowStyle Hidden"
+echo  本窗口请勿关闭，投屏运行期间它负责输出日志。
+echo  如投屏失败，下方会显示具体错误原因，可截图反馈。
+echo.
+"%SCRCPY%" --serial=!CAST_SERIAL! --ime --video-codec=h265 --max-size=1920 --max-fps=60 --video-bit-rate=10M --video-buffer=50 --audio-bit-rate=256K --audio-buffer=100 --turn-screen-off
+echo.
+echo  ================================================
+echo   [提示] 投屏已退出（可能手动关闭了投屏窗口）。
+echo  ================================================
+echo.
+timeout /t 10 >nul
 exit /b 0
 
 rem ================= 错误处理 =================
