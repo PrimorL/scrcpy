@@ -318,27 +318,67 @@ rem ================= 第11步：启动投屏 =================
 :cast
 echo  [启动] 正在启动投屏（中文输入模式，60 帧）...
 echo  提示：用电脑输入法打字即可直接输入中文到手机
-echo  本窗口请勿关闭，投屏运行期间它负责输出日志。
-echo  如投屏失败，下方会显示具体错误原因，可截图反馈。
+echo  投屏画面出来后，本窗口会自动关闭。
 echo.
-"%SCRCPY%" --serial=!CAST_SERIAL! --ime --video-codec=h265 --max-size=1920 --max-fps=60 --video-bit-rate=10M --video-buffer=50 --audio-bit-rate=256K --audio-buffer=100 --turn-screen-off
-set "SCRCPY_ERR=%errorlevel%"
-rem scrcpy 会把控制台切到 UTF-8，恢复回 GBK 以免后续中文变乱码
-chcp 936 >nul
-echo.
-if not "!SCRCPY_ERR!"=="0" (
-    echo  ================================================
-    echo   [错误] 投屏异常退出（错误码 !SCRCPY_ERR!）。
-    echo   请查看上方日志中的 ERROR 行，截图反馈即可定位。
-    echo  ================================================
-) else (
-    echo  ================================================
-    echo   [提示] 投屏已退出（可能手动关闭了投屏窗口）。
-    echo  ================================================
+rem 后台启动 scrcpy，日志重定向到临时文件，便于失败时回显具体报错
+start "" "%SCRCPY%" --serial=!CAST_SERIAL! --ime --video-codec=h265 --max-size=1920 --max-fps=60 --video-bit-rate=10M --video-buffer=50 --audio-bit-rate=256K --audio-buffer=100 --turn-screen-off > "%TEMP%\scrcpy_log.txt" 2>&1
+rem 等待 scrcpy 进程启动
+set "CAST_CNT=0"
+:wait_cast
+set /a CAST_CNT+=1
+tasklist /fi "imagename eq scrcpy.exe" /fo csv /nh 2>nul | findstr /i "scrcpy.exe" >nul 2>&1
+if not errorlevel 1 goto :cast_started
+if !CAST_CNT! gtr 10 (
+    echo.
+    echo   [错误] 投屏进程未能启动，请检查上方是否有报错。
+    goto :fail
 )
+timeout /t 1 >nul
+goto :wait_cast
+
+:cast_started
+rem 检测投屏窗口是否已弹出（第一帧画面解码成功才会显示）
+echo  正在等待投屏画面出现...
+set "WIN_CNT=0"
+:wait_win
+set /a WIN_CNT+=1
+for /f "delims=" %%w in ('powershell -NoProfile -Command "(Get-Process scrcpy -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -ne '' }).Count"') do set "WIN_N=%%w"
+if "!WIN_N!" gtr "0" (
+    echo  [成功] 投屏已启动，本窗口即将关闭。
+    timeout /t 2 >nul
+    exit /b 0
+)
+if !WIN_CNT! gtr 25 (
+    echo.
+    echo   [错误] 投屏进程已启动，但 25 秒内未出现画面窗口。
+    echo   以下是 scrcpy 的日志（定位原因用）：
+    echo  ------------------------------------------------
+    type "%TEMP%\scrcpy_log.txt" 2>nul
+    echo  ------------------------------------------------
+    rem 杀掉残留 scrcpy，避免后台残留
+    taskkill /f /im scrcpy.exe >nul 2>&1
+    goto :fail
+)
+rem 若进程提前退出，说明启动失败，跳出等待并回显错误
+tasklist /fi "imagename eq scrcpy.exe" /fo csv /nh 2>nul | findstr /i "scrcpy.exe" >nul 2>&1
+if errorlevel 1 goto :cast_exit
+timeout /t 1 >nul
+goto :wait_win
+
+:cast_exit
 echo.
-timeout /t 10 >nul
-exit /b 0
+echo   [错误] 投屏进程异常退出。以下是 scrcpy 的日志（定位原因用）：
+echo  ------------------------------------------------
+type "%TEMP%\scrcpy_log.txt" 2>nul
+echo  ------------------------------------------------
+echo.
+chcp 936 >nul
+echo  ================================================
+echo   [错误] 投屏启动失败，进程已退出。
+echo  ================================================
+echo.
+timeout /t 30 >nul
+exit /b 1
 
 rem ================= 错误处理 =================
 :fail
