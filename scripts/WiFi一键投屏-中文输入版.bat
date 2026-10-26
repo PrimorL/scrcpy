@@ -12,11 +12,14 @@ set "BASE=%USERPROFILE%\scrcpy-ime"
 set "SCRCPY=%BASE%\scrcpy.exe"
 set "ADB=%BASE%\adb.exe"
 set "IME_APK=%BASE%\scrcpy-ime.apk"
-rem 国内加速镜像（主 + 备，主失效自动切换）
+rem 国内加速镜像（主 + 备，主失效自动切换；实测 ghfast.top 约 450KB/s，gh-proxy.com 约 158KB/s）
 set "MIRROR1=https://ghfast.top"
 set "MIRROR2=https://gh-proxy.com"
 set "GH_ZIP=https://github.com/PrimorL/scrcpy-ime/releases/download/v5.0.1-ime/scrcpy-win64-ime.zip"
 set "GH_APK=https://github.com/PrimorL/scrcpy-ime/releases/download/v5.0.1-ime/scrcpy-ime.apk"
+rem 文件真实字节数，用于校验下载完整性（防止下到一半被误判成功）
+set "ZIP_SIZE=11271751"
+set "APK_SIZE=854819"
 
 echo.
 echo  ================================================
@@ -32,13 +35,14 @@ rem 主镜像
 set "DL_SIZE=0"
 curl -L --connect-timeout 20 --retry 2 -sS -o "%BASE%\scrcpy-win64-ime.zip" "%MIRROR1%/%GH_ZIP%"
 if exist "%BASE%\scrcpy-win64-ime.zip" for %%F in ("%BASE%\scrcpy-win64-ime.zip") do set "DL_SIZE=%%~zF"
-if !DL_SIZE! gtr 0 goto :scrcpy_ok
+if "!DL_SIZE!"=="%ZIP_SIZE%" goto :scrcpy_ok
 rem 备用镜像
-echo  [提示] 主镜像失败，切换备用镜像...
+echo  [提示] 主镜像下载不完整，切换备用镜像...
+del "%BASE%\scrcpy-win64-ime.zip" >nul 2>&1
 set "DL_SIZE=0"
 curl -L --connect-timeout 20 --retry 2 -sS -o "%BASE%\scrcpy-win64-ime.zip" "%MIRROR2%/%GH_ZIP%"
 if exist "%BASE%\scrcpy-win64-ime.zip" for %%F in ("%BASE%\scrcpy-win64-ime.zip") do set "DL_SIZE=%%~zF"
-if !DL_SIZE! gtr 0 goto :scrcpy_ok
+if "!DL_SIZE!"=="%ZIP_SIZE%" goto :scrcpy_ok
 set "ERRMSG=下载 scrcpy 失败（已尝试多个镜像，请检查网络后重试）"
 goto :fail
 
@@ -61,13 +65,14 @@ rem 主镜像
 set "DL_SIZE=0"
 curl -L --connect-timeout 20 --retry 2 -sS -o "%IME_APK%" "%MIRROR1%/%GH_APK%"
 if exist "%IME_APK%" for %%F in ("%IME_APK%") do set "DL_SIZE=%%~zF"
-if !DL_SIZE! gtr 0 goto :apk_ok
+if "!DL_SIZE!"=="%APK_SIZE%" goto :apk_ok
 rem 备用镜像
-echo  [提示] 主镜像失败，切换备用镜像...
+echo  [提示] 主镜像下载不完整，切换备用镜像...
+del "%IME_APK%" >nul 2>&1
 set "DL_SIZE=0"
 curl -L --connect-timeout 20 --retry 2 -sS -o "%IME_APK%" "%MIRROR2%/%GH_APK%"
 if exist "%IME_APK%" for %%F in ("%IME_APK%") do set "DL_SIZE=%%~zF"
-if !DL_SIZE! gtr 0 goto :apk_ok
+if "!DL_SIZE!"=="%APK_SIZE%" goto :apk_ok
 set "ERRMSG=下载 scrcpy-ime.apk 失败（已尝试多个镜像，请检查网络后重试）"
 goto :fail
 
