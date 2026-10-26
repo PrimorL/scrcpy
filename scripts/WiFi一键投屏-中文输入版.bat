@@ -320,8 +320,9 @@ echo  [启动] 正在启动投屏（中文输入模式，60 帧）...
 echo  提示：用电脑输入法打字即可直接输入中文到手机
 echo  投屏画面出来后，本窗口会自动关闭。
 echo.
-rem 后台启动 scrcpy，日志重定向到临时文件，便于失败时回显具体报错
-start "" "%SCRCPY%" --serial=!CAST_SERIAL! --ime --video-codec=h265 --max-size=1920 --max-fps=60 --video-bit-rate=10M --video-buffer=50 --audio-bit-rate=256K --audio-buffer=100 --turn-screen-off > "%TEMP%\scrcpy_log.txt" 2>&1
+rem 用 -WindowStyle Hidden 启动：隐藏控制台窗口（scrcpy 是 console 程序），
+rem 但 SDL 投屏窗口会由 scrcpy 自己在首帧后主动显示，不受影响。
+powershell -NoProfile -Command "Start-Process -FilePath '%SCRCPY%' -ArgumentList '--serial=!CAST_SERIAL!','--ime','--video-codec=h265','--max-size=1920','--max-fps=60','--video-bit-rate=10M','--video-buffer=50','--audio-bit-rate=256K','--audio-buffer=100','--turn-screen-off' -WindowStyle Hidden"
 rem 等待 scrcpy 进程启动
 set "CAST_CNT=0"
 :wait_cast
@@ -351,10 +352,8 @@ if "!WIN_N!" gtr "0" (
 if !WIN_CNT! gtr 25 (
     echo.
     echo   [错误] 投屏进程已启动，但 25 秒内未出现画面窗口。
-    echo   以下是 scrcpy 的日志（定位原因用）：
-    echo  ------------------------------------------------
-    type "%TEMP%\scrcpy_log.txt" 2>nul
-    echo  ------------------------------------------------
+    echo   常见原因：手机未连上、h265 编码不支持、IME 版本不匹配。
+    echo.
     rem 杀掉残留 scrcpy，避免后台残留
     taskkill /f /im scrcpy.exe >nul 2>&1
     goto :fail
@@ -367,10 +366,8 @@ goto :wait_win
 
 :cast_exit
 echo.
-echo   [错误] 投屏进程异常退出。以下是 scrcpy 的日志（定位原因用）：
-echo  ------------------------------------------------
-type "%TEMP%\scrcpy_log.txt" 2>nul
-echo  ------------------------------------------------
+echo   [错误] 投屏进程异常退出（可能是连接失败或 IME 版本问题）。
+echo   请重跑脚本；若重复出现，把本窗口上方日志截图反馈。
 echo.
 chcp 936 >nul
 echo  ================================================
