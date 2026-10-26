@@ -110,7 +110,10 @@ if defined WIFI_SERIAL (
     "%ADB%" -s !WIFI_SERIAL! shell getprop ro.product.model >nul 2>&1
     if not errorlevel 1 (
         set "CAST_SERIAL=!WIFI_SERIAL!"
-        goto :cast
+        rem WiFi 快捷通道同样要校验手机上的 IME 版本（旧版会导致投屏失败）
+        set "INSTALL_SERIAL=!WIFI_SERIAL!"
+        set "WIFI_ONLY=1"
+        goto :install_ime
     )
     "%ADB%" disconnect !WIFI_SERIAL! >nul 2>&1
 )
@@ -142,7 +145,10 @@ findstr /v ":" "%TEMP%\adb_tmp.txt" > "%TEMP%\adb_tmp2.txt" 2>nul
 findstr "device" "%TEMP%\adb_tmp2.txt" > "%TEMP%\adb_ok.txt" 2>nul
 set "USB_SERIAL="
 for /f "tokens=1" %%a in (%TEMP%\adb_ok.txt) do set "USB_SERIAL=%%a"
-if defined USB_SERIAL goto :install_ime
+if defined USB_SERIAL (
+    set "INSTALL_SERIAL=!USB_SERIAL!"
+    goto :install_ime
+)
 
 findstr /v ":" "%TEMP%\adb_tmp.txt" > "%TEMP%\adb_tmp2.txt" 2>nul
 findstr "unauthorized" "%TEMP%\adb_tmp2.txt" > "%TEMP%\adb_unauth.txt" 2>nul
@@ -162,18 +168,55 @@ rem ================= 第6步：检查/安装 APK =================
 rem 检查已装版本：若与当前 APK 版本不一致（如旧版 4.1），必须先卸载，
 rem 否则 scrcpy 启动时会在 WiFi 连接下尝试升级，容易安装失败导致投屏退出
 :install_ime
-"%ADB%" -s !USB_SERIAL! shell pm list packages > "%TEMP%\pkg.txt" 2>nul
+rem 检查已装版本：若与当前 APK 版本不一致（如旧版 4.1），必须先卸载，
+rem 否则 scrcpy 启动时会在 WiFi 连接下尝试升级，容易安装失败导致投屏退出
+"%ADB%" -s !INSTALL_SERIAL! shell pm list packages > "%TEMP%\pkg.txt" 2>nul
 findstr /c:"com.genymobile.scrcpy.ime" "%TEMP%\pkg.txt" >nul 2>&1
 if errorlevel 1 goto :do_install
 rem 已安装：校验版本是否匹配
-"%ADB%" -s !USB_SERIAL! shell dumpsys package com.genymobile.scrcpy.ime > "%TEMP%\imever.txt" 2>nul
+"%ADB%" -s !INSTALL_SERIAL! shell dumpsys package com.genymobile.scrcpy.ime > "%TEMP%\imever.txt" 2>nul
 findstr /c:"versionName=5.0.1" "%TEMP%\imever.txt" >nul 2>&1
 if not errorlevel 1 (
     echo  [检测] scrcpy-ime 已是最新版本 5.0.1
+    if defined WIFI_ONLY goto :cast
     goto :get_ip
 )
+rem 旧版本处理：WiFi 通道下更新安装容易失败，引导用户插 USB 线
+if defined WIFI_ONLY goto :wifi_need_usb
 echo  [检测] 手机上的 scrcpy-ime 是旧版本，正在更新（先卸载旧版）...
-"%ADB%" -s !USB_SERIAL! uninstall com.genymobile.scrcpy.ime >nul 2>&1
+"%ADB%" -s !INSTALL_SERIAL! uninstall com.genymobile.scrcpy.ime >nul 2>&1
+goto :do_install
+
+:wifi_need_usb
+echo.
+echo  ----------------------------------------------
+echo  检测到手机上的 scrcpy-ime 是旧版本，需要更新。
+echo  WiFi 下更新安装容易失败，请插入 USB 数据线，
+echo  脚本将通过 USB 自动完成更新（无需拔线）...
+echo  ----------------------------------------------
+echo.
+set "WAIT_CNT=0"
+:wait_usb_wifi
+set /a WAIT_CNT+=1
+if !WAIT_CNT! gtr 120 (
+    set "ERRMSG=等待 USB 连接超时（120 秒），请插上 USB 数据线并允许 USB 调试后重试"
+    goto :fail
+)
+"%ADB%" devices > "%TEMP%\adb_raw.txt" 2>nul
+findstr /v "List" "%TEMP%\adb_raw.txt" > "%TEMP%\adb_tmp.txt" 2>nul
+findstr /v ":" "%TEMP%\adb_tmp.txt" > "%TEMP%\adb_tmp2.txt" 2>nul
+findstr "device" "%TEMP%\adb_tmp2.txt" > "%TEMP%\adb_ok.txt" 2>nul
+set "USB_SERIAL="
+for /f "tokens=1" %%a in (%TEMP%\adb_ok.txt) do set "USB_SERIAL=%%a"
+if defined USB_SERIAL (
+    set "INSTALL_SERIAL=!USB_SERIAL!"
+    echo  [成功] 已检测到 USB 连接：!USB_SERIAL!
+    echo  [检测] 正在卸载旧版本 scrcpy-ime...
+    "%ADB%" -s !INSTALL_SERIAL! uninstall com.genymobile.scrcpy.ime >nul 2>&1
+    goto :do_install
+)
+timeout /t 1 >nul
+goto :wait_usb_wifi
 
 :do_install
 echo.
@@ -189,11 +232,12 @@ if !IME_CNT! gtr 60 (
     set "ERRMSG=安装 scrcpy-ime 超时，请确认手机已开启 USB 安装权限并点击安装确认"
     goto :fail
 )
-"%ADB%" -s !USB_SERIAL! install "%IME_APK%" >nul 2>&1
-"%ADB%" -s !USB_SERIAL! shell pm list packages > "%TEMP%\pkg.txt" 2>nul
+"%ADB%" -s !INSTALL_SERIAL! install "%IME_APK%" >nul 2>&1
+"%ADB%" -s !INSTALL_SERIAL! shell pm list packages > "%TEMP%\pkg.txt" 2>nul
 findstr /c:"com.genymobile.scrcpy.ime" "%TEMP%\pkg.txt" >nul 2>&1
 if not errorlevel 1 (
     echo  [成功] scrcpy-ime 已安装
+    if defined WIFI_ONLY goto :cast
     goto :get_ip
 )
 timeout /t 2 >nul
