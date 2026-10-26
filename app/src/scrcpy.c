@@ -146,6 +146,13 @@ event_loop(struct scrcpy *s, bool has_screen) {
             case SC_EVENT_TIME_LIMIT_REACHED:
                 LOGI("Time limit reached");
                 return SCRCPY_EXIT_SUCCESS;
+            case SC_EVENT_IME_CURSOR_ANCHOR:
+                if (has_screen) {
+                    sc_screen_handle_event(&s->screen, &event);
+                } else {
+                    free(event.user.data1);
+                }
+                break;
             case SDL_EVENT_QUIT:
                 LOGD("User requested to quit");
                 return SCRCPY_EXIT_SUCCESS;
@@ -473,6 +480,7 @@ scrcpy(struct scrcpy_options *options) {
         .tcpip = options->tcpip,
         .tcpip_dst = options->tcpip_dst,
         .cleanup = options->cleanup,
+        .ime = options->ime,
         .power_on = options->power_on,
         .kill_adb_on_close = options->kill_adb_on_close,
         .camera_high_speed = options->camera_high_speed,
@@ -766,7 +774,7 @@ aoa_complete:
         if (options->keyboard_input_mode == SC_KEYBOARD_INPUT_MODE_SDK) {
             sc_keyboard_sdk_init(&s->keyboard_sdk, &s->controller,
                                  options->key_inject_mode,
-                                 options->forward_key_repeat);
+                                 options->forward_key_repeat, options->ime);
             kp = &s->keyboard_sdk.key_processor;
         } else if (options->keyboard_input_mode
                 == SC_KEYBOARD_INPUT_MODE_UHID) {
@@ -841,6 +849,7 @@ aoa_complete:
             .hwdec_mode = options->hwdec_mode,
             .fullscreen = options->fullscreen,
             .start_fps_counter = options->start_fps_counter,
+            .ime = options->ime,
         };
 
         if (!sc_screen_init(&s->screen, &screen_params)) {

@@ -23,6 +23,7 @@ src = [
     'src/hwdec.c',
     'src/icon.c',
     'src/input_manager.c',
+    'src/ime.c',
     'src/keyboard_sdk.c',
     'src/mouse_capture.c',
     'src/mouse_sdk.c',
@@ -71,6 +72,12 @@ src = [
     'src/util/tick.c',
     'src/util/timeout.c',
 ]
+
+macos_support = host_machine.system() == 'darwin'
+if macos_support
+    add_languages('objc')
+    src += [ 'src/sys/macos/ime_position.m' ]
+endif
 
 feature_test_macros = [
     '-D_GNU_SOURCE',
@@ -149,6 +156,10 @@ dependencies = [
     dependency('libswresample', static: static),
     dependency('sdl3', version: '>= 3.2.0', static: static),
 ]
+
+if macos_support
+    dependencies += dependency('appleframeworks', modules: 'AppKit')
+endif
 
 if v4l2_support
     dependencies += dependency('libavdevice', static: static)

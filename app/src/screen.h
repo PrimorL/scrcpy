@@ -39,6 +39,7 @@ struct sc_screen {
     bool camera;
     bool window_aspect_ratio_lock;
     bool flex_display;
+    bool ime;
 
     struct sc_controller *controller;
 
@@ -102,6 +103,14 @@ struct sc_screen {
     bool disconnect_started;
     struct sc_disconnect disconnect;
 
+    bool ime_cursor_anchor_valid;
+    struct sc_point ime_cursor_anchor_start;
+    struct sc_point ime_cursor_anchor_end;
+    struct sc_size ime_cursor_anchor_screen_size;
+    bool text_input_area_initialized;
+    SDL_Rect text_input_area;
+    int text_input_cursor;
+
     SDL_Texture *icon_tex;
     // render icon rather than frame?
     bool is_icon_active;
@@ -150,6 +159,7 @@ struct sc_screen_params {
 
     bool fullscreen;
     bool start_fps_counter;
+    bool ime;
 };
 
 // initialize screen, create window, renderer and texture (window is hidden)
