@@ -437,6 +437,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GRADLE: gradle  # use native gradle instead of ./gradlew
+      ANDROID_HOME: /usr/local/lib/android/sdk
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -447,8 +448,16 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK licenses
+        run: |
+          SDKMANAGER="$ANDROID_HOME"/cmdline-tools/latest/bin/sdkmanager
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$ANDROID_HOME"/cmdline-tools -name sdkmanager -type f | head -1)
+          fi
+          echo "Using sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          # Install the required platform (Android 16 / API 36)
+          yes | "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" > /dev/null 2>&1 || true
 
       - name: Build IME APK
         run: ime/scripts/build.sh debug
