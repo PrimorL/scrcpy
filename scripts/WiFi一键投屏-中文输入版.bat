@@ -23,8 +23,8 @@ set "URL1_APK=https://gitee.com/PrimorL/scrcpy-ime/releases/download/v5.0.1-ime/
 set "URL2_APK=https://ghfast.top/https://github.com/PrimorL/scrcpy-ime/releases/download/v5.0.1-ime/scrcpy-ime.apk"
 set "URL3_APK=https://gh-proxy.com/https://github.com/PrimorL/scrcpy-ime/releases/download/v5.0.1-ime/scrcpy-ime.apk"
 rem 文件真实字节数，用于校验下载完整性（防止下到一半被误判成功）
-set "ZIP_SIZE=11271751"
-set "APK_SIZE=854819"
+set "ZIP_SIZE=11274767"
+set "APK_SIZE=854832"
 
 echo.
 echo  ================================================
