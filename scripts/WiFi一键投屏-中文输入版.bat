@@ -68,8 +68,14 @@ echo.
 
 :check_apk
 rem ================= 第2步：检查/下载 APK =================
-if exist "%IME_APK%" goto :try_wifi
-echo  [检测] 未找到 scrcpy-ime.apk，正在下载...
+rem 已存在的 APK 也要校验版本（字节数），防止旧版本残留被误用
+if exist "%IME_APK%" for %%F in ("%IME_APK%") do if "%%~zF"=="%APK_SIZE%" goto :try_wifi
+if exist "%IME_APK%" (
+    echo  [检测] 发现旧版本 scrcpy-ime.apk，正在更新...
+    del "%IME_APK%" >nul 2>&1
+) else (
+    echo  [检测] 未找到 scrcpy-ime.apk，正在下载...
+)
 rem 依次尝试三个下载源
 set "TRY=1"
 :dl_apk
@@ -272,10 +278,20 @@ echo  本窗口请勿关闭，投屏运行期间它负责输出日志。
 echo  如投屏失败，下方会显示具体错误原因，可截图反馈。
 echo.
 "%SCRCPY%" --serial=!CAST_SERIAL! --ime --video-codec=h265 --max-size=1920 --max-fps=60 --video-bit-rate=10M --video-buffer=50 --audio-bit-rate=256K --audio-buffer=100 --turn-screen-off
+set "SCRCPY_ERR=%errorlevel%"
+rem scrcpy 会把控制台切到 UTF-8，恢复回 GBK 以免后续中文变乱码
+chcp 936 >nul
 echo.
-echo  ================================================
-echo   [提示] 投屏已退出（可能手动关闭了投屏窗口）。
-echo  ================================================
+if not "!SCRCPY_ERR!"=="0" (
+    echo  ================================================
+    echo   [错误] 投屏异常退出（错误码 !SCRCPY_ERR!）。
+    echo   请查看上方日志中的 ERROR 行，截图反馈即可定位。
+    echo  ================================================
+) else (
+    echo  ================================================
+    echo   [提示] 投屏已退出（可能手动关闭了投屏窗口）。
+    echo  ================================================
+)
 echo.
 timeout /t 10 >nul
 exit /b 0
