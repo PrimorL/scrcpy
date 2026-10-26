@@ -12,11 +12,16 @@ set "BASE=%USERPROFILE%\scrcpy-ime"
 set "SCRCPY=%BASE%\scrcpy.exe"
 set "ADB=%BASE%\adb.exe"
 set "IME_APK=%BASE%\scrcpy-ime.apk"
-rem 国内加速镜像（主 + 备，主失效自动切换；实测 ghfast.top 约 450KB/s，gh-proxy.com 约 158KB/s）
-set "MIRROR1=https://ghfast.top"
-set "MIRROR2=https://gh-proxy.com"
-set "GH_ZIP=https://github.com/PrimorL/scrcpy-ime/releases/download/v5.0.1-ime/scrcpy-win64-ime.zip"
-set "GH_APK=https://github.com/PrimorL/scrcpy-ime/releases/download/v5.0.1-ime/scrcpy-ime.apk"
+rem 下载源：按顺序依次尝试，前一个失败自动切下一个（国内用户 Gitee 直连最快最稳）
+rem 源1 = Gitee 直连（国内服务器，速度最快，无需代理）
+rem 源2 = ghfast.top 镜像 GitHub（备，实测约 450KB/s）
+rem 源3 = gh-proxy.com 镜像 GitHub（第二备，实测约 158KB/s）
+set "URL1_ZIP=https://gitee.com/PrimorL/scrcpy-ime/releases/download/v5.0.1-ime/scrcpy-win64-ime.zip"
+set "URL2_ZIP=https://ghfast.top/https://github.com/PrimorL/scrcpy-ime/releases/download/v5.0.1-ime/scrcpy-win64-ime.zip"
+set "URL3_ZIP=https://gh-proxy.com/https://github.com/PrimorL/scrcpy-ime/releases/download/v5.0.1-ime/scrcpy-win64-ime.zip"
+set "URL1_APK=https://gitee.com/PrimorL/scrcpy-ime/releases/download/v5.0.1-ime/scrcpy-ime.apk"
+set "URL2_APK=https://ghfast.top/https://github.com/PrimorL/scrcpy-ime/releases/download/v5.0.1-ime/scrcpy-ime.apk"
+set "URL3_APK=https://gh-proxy.com/https://github.com/PrimorL/scrcpy-ime/releases/download/v5.0.1-ime/scrcpy-ime.apk"
 rem 文件真实字节数，用于校验下载完整性（防止下到一半被误判成功）
 set "ZIP_SIZE=11271751"
 set "APK_SIZE=854819"
@@ -31,20 +36,24 @@ rem ================= 第1步：检查/下载 scrcpy =================
 if exist "%SCRCPY%" goto :check_apk
 echo  [检测] 未找到 scrcpy，正在通过国内镜像下载（约 11MB）...
 if not exist "%BASE%" mkdir "%BASE%"
-rem 主镜像
+rem 依次尝试三个下载源
+set "TRY=1"
+:dl_zip
+if !TRY! gtr 3 (
+    set "ERRMSG=下载 scrcpy 失败（已尝试 Gitee 及多个镜像，请检查网络后重试）"
+    goto :fail
+)
+if !TRY!==1 echo  [下载] 正在从 Gitee 直连下载（约 11MB）...
+if !TRY!==2 echo  [提示] Gitee 下载失败，切换镜像 ghfast.top...
+if !TRY!==3 echo  [提示] 镜像失败，切换备用镜像 gh-proxy.com...
 set "DL_SIZE=0"
-curl -L --connect-timeout 20 --retry 2 -sS -o "%BASE%\scrcpy-win64-ime.zip" "%MIRROR1%/%GH_ZIP%"
+call set "DL_URL=%%URL!TRY!_ZIP%%"
+curl -L --connect-timeout 20 --retry 2 -sS -o "%BASE%\scrcpy-win64-ime.zip" "!DL_URL!"
 if exist "%BASE%\scrcpy-win64-ime.zip" for %%F in ("%BASE%\scrcpy-win64-ime.zip") do set "DL_SIZE=%%~zF"
 if "!DL_SIZE!"=="%ZIP_SIZE%" goto :scrcpy_ok
-rem 备用镜像
-echo  [提示] 主镜像下载不完整，切换备用镜像...
 del "%BASE%\scrcpy-win64-ime.zip" >nul 2>&1
-set "DL_SIZE=0"
-curl -L --connect-timeout 20 --retry 2 -sS -o "%BASE%\scrcpy-win64-ime.zip" "%MIRROR2%/%GH_ZIP%"
-if exist "%BASE%\scrcpy-win64-ime.zip" for %%F in ("%BASE%\scrcpy-win64-ime.zip") do set "DL_SIZE=%%~zF"
-if "!DL_SIZE!"=="%ZIP_SIZE%" goto :scrcpy_ok
-set "ERRMSG=下载 scrcpy 失败（已尝试多个镜像，请检查网络后重试）"
-goto :fail
+set /a TRY+=1
+goto :dl_zip
 
 :scrcpy_ok
 echo  [检测] 正在解压 scrcpy...
@@ -60,21 +69,25 @@ echo.
 :check_apk
 rem ================= 第2步：检查/下载 APK =================
 if exist "%IME_APK%" goto :try_wifi
-echo  [检测] 未找到 scrcpy-ime.apk，正在通过国内镜像下载...
-rem 主镜像
+echo  [检测] 未找到 scrcpy-ime.apk，正在下载...
+rem 依次尝试三个下载源
+set "TRY=1"
+:dl_apk
+if !TRY! gtr 3 (
+    set "ERRMSG=下载 scrcpy-ime.apk 失败（已尝试 Gitee 及多个镜像，请检查网络后重试）"
+    goto :fail
+)
+if !TRY!==1 echo  [下载] 正在从 Gitee 直连下载 scrcpy-ime.apk...
+if !TRY!==2 echo  [提示] Gitee 下载失败，切换镜像 ghfast.top...
+if !TRY!==3 echo  [提示] 镜像失败，切换备用镜像 gh-proxy.com...
 set "DL_SIZE=0"
-curl -L --connect-timeout 20 --retry 2 -sS -o "%IME_APK%" "%MIRROR1%/%GH_APK%"
+call set "DL_URL=%%URL!TRY!_APK%%"
+curl -L --connect-timeout 20 --retry 2 -sS -o "%IME_APK%" "!DL_URL!"
 if exist "%IME_APK%" for %%F in ("%IME_APK%") do set "DL_SIZE=%%~zF"
 if "!DL_SIZE!"=="%APK_SIZE%" goto :apk_ok
-rem 备用镜像
-echo  [提示] 主镜像下载不完整，切换备用镜像...
 del "%IME_APK%" >nul 2>&1
-set "DL_SIZE=0"
-curl -L --connect-timeout 20 --retry 2 -sS -o "%IME_APK%" "%MIRROR2%/%GH_APK%"
-if exist "%IME_APK%" for %%F in ("%IME_APK%") do set "DL_SIZE=%%~zF"
-if "!DL_SIZE!"=="%APK_SIZE%" goto :apk_ok
-set "ERRMSG=下载 scrcpy-ime.apk 失败（已尝试多个镜像，请检查网络后重试）"
-goto :fail
+set /a TRY+=1
+goto :dl_apk
 
 :apk_ok
 echo  [成功] scrcpy-ime.apk 已就绪
