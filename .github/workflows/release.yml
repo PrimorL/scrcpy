@@ -619,7 +619,6 @@ jobs:
       - package-win32
       - package-win64
       - package-winarm64
-      - package-macos-aarch64
       - package-macos-x86_64
     runs-on: ubuntu-latest
     steps:
@@ -657,6 +656,7 @@ jobs:
           path: release/output/
 
       - name: Download release-macos-aarch64
+        if: false  # macOS arm64 runner 排队经常被取消，跳过该平台（不阻塞 release）
         uses: actions/download-artifact@v8
         with:
           name: release-macos-aarch64
