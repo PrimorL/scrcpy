@@ -57,7 +57,9 @@ goto :dl_zip
 
 :scrcpy_ok
 echo  [检测] 正在解压 scrcpy...
-powershell -NoProfile -Command "Expand-Archive -Path '%BASE%\scrcpy-win64-ime.zip' -DestinationPath '%BASE%' -Force"
+rem zip 内文件都包在一层目录（如 scrcpy-win64-v5.0.1-ime/）里，
+rem 解压后需把该目录下的文件平铺到 %BASE%，否则路径对不上
+powershell -NoProfile -Command "Expand-Archive -Path '%BASE%\scrcpy-win64-ime.zip' -DestinationPath '%BASE%\extract_tmp' -Force; $sub = Get-ChildItem '%BASE%\extract_tmp' -Directory | Select-Object -First 1; if ($sub) { Get-ChildItem $sub.FullName | Move-Item -Destination '%BASE%' -Force; Remove-Item '%BASE%\extract_tmp' -Recurse -Force } else { Get-ChildItem '%BASE%\extract_tmp' | Move-Item -Destination '%BASE%' -Force; Remove-Item '%BASE%\extract_tmp' -Force }"
 if not exist "%SCRCPY%" (
     set "ERRMSG=解压 scrcpy 失败，压缩包可能损坏，请删除 %BASE% 后重试"
     goto :fail
