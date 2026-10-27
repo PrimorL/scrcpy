@@ -322,7 +322,7 @@ echo  投屏画面出来后，本窗口会自动关闭。
 echo.
 rem 用 -WindowStyle Hidden 启动：隐藏控制台窗口（scrcpy 是 console 程序），
 rem 但 SDL 投屏窗口会由 scrcpy 自己在首帧后主动显示，不受影响。
-powershell -NoProfile -Command "Start-Process -FilePath '%SCRCPY%' -ArgumentList '--serial=!CAST_SERIAL!','--ime','--video-codec=h264','--hwdec=disabled','--max-size=1920','--max-fps=60','--video-bit-rate=12M','--video-buffer=50','--audio-bit-rate=256K','--audio-buffer=100','--turn-screen-off' -WindowStyle Hidden"
+powershell -NoProfile -Command "Start-Process -FilePath '%SCRCPY%' -ArgumentList '--serial=!CAST_SERIAL!','--ime','--video-codec=h264','--max-size=1920','--max-fps=120','--video-bit-rate=16M','--video-buffer=50','--audio-bit-rate=256K','--audio-buffer=100','--turn-screen-off' -WindowStyle Hidden"
 rem 等待 scrcpy 进程启动
 set "CAST_CNT=0"
 :wait_cast
